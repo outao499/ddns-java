@@ -11,4 +11,9 @@ public interface FileOperationDao {
     boolean deleteAccount(String provider, String secretId);
     void modifyPassword(String modify);
     boolean isInitialPassword();
+
+    /**
+     * 判断指定密码是否等于配置中的默认初始密码
+     */
+    boolean isDefaultPassword(String password);
 }

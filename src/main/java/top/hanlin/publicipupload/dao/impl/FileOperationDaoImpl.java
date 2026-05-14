@@ -1,5 +1,7 @@
 package top.hanlin.publicipupload.dao.impl;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Repository;
 import top.hanlin.publicipupload.dao.FileOperationDao;
 import top.hanlin.publicipupload.entity.UserInfo;
 
@@ -10,7 +12,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Repository
 public class FileOperationDaoImpl implements FileOperationDao {
+
+    @Value("${password}")
+    private String loginPassword;
+
     @Override
     public List<UserInfo> getAllUser() {
         List<UserInfo> userList = new ArrayList<>();
@@ -145,7 +152,7 @@ public class FileOperationDaoImpl implements FileOperationDao {
         if (!file.exists()) {
             createCloudFolders();
             try (FileWriter writer = new FileWriter(file)) {
-                writer.write("123456");
+                writer.write(loginPassword);
             } catch (IOException e) {
                 e.printStackTrace();
                 return ""; // 创建失败时返回空字符串
@@ -188,6 +195,11 @@ public class FileOperationDaoImpl implements FileOperationDao {
     
     @Override
     public boolean isInitialPassword() {
-        return "123456".equals(getPassword());
+        return loginPassword.equals(getPassword());
+    }
+
+    @Override
+    public boolean isDefaultPassword(String password) {
+        return loginPassword.equals(password);
     }
 }
