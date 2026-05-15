@@ -1031,12 +1031,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 return false;
             }
             
-            if (newPassword === '123456') {
-                e.preventDefault();
-                alert('新密码不能与初始密码相同');
-                return false;
-            }
-            
             return true;
         });
     }

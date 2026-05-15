@@ -7,7 +7,6 @@ import com.tencentcloudapi.common.profile.HttpProfile;
 import com.tencentcloudapi.dnspod.v20210323.DnspodClient;
 import com.tencentcloudapi.dnspod.v20210323.models.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import top.hanlin.publicipupload.entity.DdnsTask;
 import top.hanlin.publicipupload.model.ApiResponse;
@@ -23,8 +22,11 @@ import java.util.Map;
 @RequestMapping("/api/dns")
 public class TencentApiController {
 
-    @Autowired
-    private DdnsTaskService ddnsTaskService;
+    private final DdnsTaskService ddnsTaskService;
+
+    public TencentApiController(DdnsTaskService ddnsTaskService) {
+        this.ddnsTaskService = ddnsTaskService;
+    }
 
     /**
      * 创建腾讯云 DnspodClient
@@ -43,14 +45,14 @@ public class TencentApiController {
      */
     @PostMapping("/domainList")
     public Object getDomainList(
-            @RequestParam String id, 
+            @RequestParam String id,
             @RequestParam String key,
             @RequestParam(defaultValue = "腾讯云") String provider) {
         log.info("获取域名列表 provider={} id={}", provider, id);
-        
+
         try {
             List<String> domainNames = new ArrayList<>();
-            
+
             if ("阿里云".equals(provider)) {
                 domainNames = getAliyunDomainList(id, key);
             } else {
@@ -58,7 +60,7 @@ public class TencentApiController {
                 DnspodClient client = createDnspodClient(id, key);
                 DescribeDomainListRequest req = new DescribeDomainListRequest();
                 DescribeDomainListResponse resp = client.DescribeDomainList(req);
-                
+
                 if (resp.getDomainList() != null) {
                     for (DomainListItem item : resp.getDomainList()) {
                         domainNames.add(item.getName());
@@ -71,21 +73,21 @@ public class TencentApiController {
             return ApiResponse.error(e.getMessage());
         }
     }
-    
+
     /**
      * 获取阿里云域名列表
      */
     private List<String> getAliyunDomainList(String accessKeyId, String accessKeySecret) throws Exception {
         com.aliyun.teaopenapi.models.Config config = new com.aliyun.teaopenapi.models.Config()
-            .setAccessKeyId(accessKeyId)
-            .setAccessKeySecret(accessKeySecret)
-            .setEndpoint("alidns.cn-hangzhou.aliyuncs.com");
+                .setAccessKeyId(accessKeyId)
+                .setAccessKeySecret(accessKeySecret)
+                .setEndpoint("alidns.cn-hangzhou.aliyuncs.com");
         com.aliyun.alidns20150109.Client client = new com.aliyun.alidns20150109.Client(config);
-        
-        com.aliyun.alidns20150109.models.DescribeDomainsRequest req = 
-            new com.aliyun.alidns20150109.models.DescribeDomainsRequest();
+
+        com.aliyun.alidns20150109.models.DescribeDomainsRequest req =
+                new com.aliyun.alidns20150109.models.DescribeDomainsRequest();
         com.aliyun.alidns20150109.models.DescribeDomainsResponse resp = client.describeDomains(req);
-        
+
         List<String> domainNames = new ArrayList<>();
         if (resp.getBody().getDomains() != null && resp.getBody().getDomains().getDomain() != null) {
             for (var domain : resp.getBody().getDomains().getDomain()) {
@@ -104,7 +106,7 @@ public class TencentApiController {
         List<Map<String, String>> results = DDNS.getAllPublicIPs();
         return ApiResponse.success(results);
     }
-    
+
     /**
      * 只获取IPv4服务结果
      */
@@ -114,7 +116,7 @@ public class TencentApiController {
         List<Map<String, String>> results = DDNS.getIPv4Only();
         return ApiResponse.success(results);
     }
-    
+
     /**
      * 只获取IPv6服务结果
      */
@@ -138,7 +140,7 @@ public class TencentApiController {
         ddnsTaskService.addOperationLog("warn", "[系统] 添加自定义IP服务失败: " + url);
         return ApiResponse.error("添加失败，可能已存在或URL无效");
     }
-    
+
     /**
      * 获取本地网卡列表
      */
@@ -148,7 +150,7 @@ public class TencentApiController {
         List<Map<String, Object>> interfaces = DDNS.getNetworkInterfaces();
         return ApiResponse.success(interfaces);
     }
-    
+
     /**
      * 添加本地网卡监控
      */
@@ -165,11 +167,12 @@ public class TencentApiController {
 
     /**
      * 创建或更新解析记录
-     * @param id 腾讯云SecretId
-     * @param key 腾讯云SecretKey
-     * @param domain 根域名 (如: example.com)
+     *
+     * @param id        腾讯云SecretId
+     * @param key       腾讯云SecretKey
+     * @param domain    根域名 (如: example.com)
      * @param subdomain 子域名/主机记录 (如: www, @, test)
-     * @param ip 用户选择的IP地址
+     * @param ip        用户选择的IP地址
      */
     @PostMapping("/createOrUpdateRecord")
     public Object createOrUpdateRecord(
@@ -178,9 +181,9 @@ public class TencentApiController {
             @RequestParam String domain,
             @RequestParam String subdomain,
             @RequestParam String ip) {
-        
+
         log.info("创建或更新解析记录: domain={}, subdomain={}, ip={}", domain, subdomain, ip);
-        
+
         // 验证IP格式
         if (ip == null || !ip.matches("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}")) {
             return ApiResponse.error("IP地址格式无效");
@@ -189,10 +192,10 @@ public class TencentApiController {
 
         try {
             DnspodClient client = createDnspodClient(id, key);
-            
+
             // 先查询该子域名是否已存在解析记录
             Long existingRecordId = findExistingRecord(client, domain, subdomain);
-            
+
             if (existingRecordId != null) {
                 // 记录已存在，更新它
                 return updateRecord(client, domain, existingRecordId, subdomain, currentIp);
@@ -215,7 +218,7 @@ public class TencentApiController {
             req.setDomain(domain);
             req.setSubdomain(subdomain);
             req.setRecordType("A");
-            
+
             DescribeRecordListResponse resp = client.DescribeRecordList(req);
             if (resp.getRecordList() != null && resp.getRecordList().length > 0) {
                 return resp.getRecordList()[0].getRecordId();
@@ -241,7 +244,7 @@ public class TencentApiController {
         req.setRecordLine("默认");
         req.setValue(ip);
         req.setTTL(600L);
-        
+
         CreateRecordResponse resp = client.CreateRecord(req);
         log.info("创建解析记录成功: recordId={}", resp.getRecordId());
         return ApiResponse.success("创建成功: " + subdomain + "." + domain + " -> " + ip);
@@ -259,7 +262,7 @@ public class TencentApiController {
         req.setRecordLine("默认");
         req.setValue(ip);
         req.setTTL(600L);
-        
+
         client.ModifyRecord(req);
         log.info("更新解析记录成功: recordId={}", recordId);
         return ApiResponse.success("更新成功: " + subdomain + "." + domain + " -> " + ip);
@@ -297,7 +300,7 @@ public class TencentApiController {
             @RequestParam String ipServiceName,
             @RequestParam(defaultValue = "300") int interval,
             @RequestParam(defaultValue = "A") String recordType) {
-        
+
         DdnsTask task = new DdnsTask();
         task.setProvider(provider);
         task.setSecretId(secretId);
@@ -308,7 +311,7 @@ public class TencentApiController {
         task.setIpServiceName(ipServiceName);
         task.setInterval(interval);
         task.setRecordType(recordType);
-        
+
         DdnsTask created = ddnsTaskService.addTask(task);
         return ApiResponse.successData(created);
     }
@@ -322,7 +325,7 @@ public class TencentApiController {
             @RequestParam int interval,
             @RequestParam String ipServiceUrl,
             @RequestParam String ipServiceName) {
-        
+
         DdnsTask updated = ddnsTaskService.updateTask(taskId, interval, ipServiceUrl, ipServiceName);
         if (updated != null) {
             return ApiResponse.successData(updated);
@@ -374,15 +377,15 @@ public class TencentApiController {
         }
         return ApiResponse.error((String) result.get("message"));
     }
-    
+
     /**
      * 获取操作日志
      */
     @GetMapping("/logs")
     public Object getOperationLogs(@RequestParam(defaultValue = "0") int fromIndex) {
         return ApiResponse.successData(Map.of(
-            "logs", ddnsTaskService.getOperationLogs(fromIndex),
-            "total", ddnsTaskService.getLogCount()
+                "logs", ddnsTaskService.getOperationLogs(fromIndex),
+                "total", ddnsTaskService.getLogCount()
         ));
     }
 }

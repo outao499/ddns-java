@@ -7,14 +7,20 @@ import com.tencentcloudapi.common.profile.HttpProfile;
 import com.tencentcloudapi.cvm.v20170312.CvmClient;
 import com.tencentcloudapi.cvm.v20170312.models.DescribeInstancesRequest;
 import com.tencentcloudapi.cvm.v20170312.models.DescribeInstancesResponse;
+import org.springframework.stereotype.Service;
 import top.hanlin.publicipupload.dao.FileOperationDao;
-import top.hanlin.publicipupload.dao.impl.FileOperationDaoImpl;
 import top.hanlin.publicipupload.service.TencentApiService;
 
+@Service
 public class TencentApiServiceImpl implements TencentApiService {
-    FileOperationDao fileOperationDao=new FileOperationDaoImpl();
+    private final FileOperationDao fileOperationDao;
+
+    public TencentApiServiceImpl(FileOperationDao fileOperationDao) {
+        this.fileOperationDao = fileOperationDao;
+    }
+
     @Override
-    public boolean validateCredentials(String secretId,String secretKey) {
+    public boolean validateCredentials(String secretId, String secretKey) {
         try {
             // 初始化认证信息
             Credential cred = new Credential(secretId, secretKey);
@@ -49,8 +55,8 @@ public class TencentApiServiceImpl implements TencentApiService {
     }
 
     @Override
-    public boolean addIdAndKey(String name,String secretId, String secretKey) {
-        return fileOperationDao.addIdAndKey(name,secretId,secretKey);
+    public boolean addIdAndKey(String name, String secretId, String secretKey) {
+        return fileOperationDao.addIdAndKey(name, secretId, secretKey);
     }
 
     @Override

@@ -24,4 +24,9 @@ public interface RepostService {
      * 判断是否是初始密码
      */
     boolean isInitialPassword();
+
+    /**
+     * 判断指定密码是否等于配置中的默认初始密码
+     */
+    boolean isDefaultPassword(String password);
 }

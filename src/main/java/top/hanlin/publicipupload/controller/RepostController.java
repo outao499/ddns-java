@@ -15,19 +15,24 @@ import org.springframework.web.bind.annotation.*;
 import top.hanlin.publicipupload.entity.UserInfo;
 import top.hanlin.publicipupload.service.RepostService;
 import top.hanlin.publicipupload.service.TencentApiService;
-import top.hanlin.publicipupload.service.impl.RepostServiceImpl;
-import top.hanlin.publicipupload.service.impl.TencentApiServiceImpl;
 
 import java.util.List;
 
 @Slf4j
 @Controller
 public class RepostController {
-    RepostService repostService = new RepostServiceImpl();
-    TencentApiService tencentApiService = new TencentApiServiceImpl();
+
+    private final RepostService repostService;
+    private final TencentApiService tencentApiService;
+
+    public RepostController(RepostService repostService, TencentApiService tencentApiService) {
+        this.repostService = repostService;
+        this.tencentApiService = tencentApiService;
+    }
+
     private String status;
     private String error;
-    
+
     private static final String SESSION_USER = "loggedIn";
     private static final String COOKIE_SESSION = "DDNS_SESSION";
     private static final int SESSION_TIMEOUT = 86400; // 1天（秒）
@@ -71,22 +76,29 @@ public class RepostController {
         response.addCookie(cookie);
         return "redirect:/";
     }
-    
+
     @PostMapping("/modify/password")
-    public String modifyPassword(@RequestParam String password, String modify, 
+    public String modifyPassword(@RequestParam String password, String modify,
                                   HttpServletRequest request, Model model) {
         if (!isLoggedIn(request)) {
             model.addAttribute("error", "请先登录");
             return "index";
         }
-        
+
         // 检查是否是初始密码，只有初始密码才能修改
         if (!repostService.isInitialPassword()) {
             error = "密码已修改过，不支持再次修改";
             return "redirect:/pages/console";
         }
-        
+
         log.info("修改密码");
+
+        // 新密码不能等于配置文件中的默认初始密码
+        if (repostService.isDefaultPassword(modify)) {
+            error = "新密码不能与初始密码相同";
+            return "redirect:/pages/console";
+        }
+
         if (repostService.login(password)) {
             repostService.modifyPassword(modify);
             status = "密码修改成功";
@@ -103,10 +115,10 @@ public class RepostController {
             model.addAttribute("error", "请登录");
             return "index";
         }
-        
+
         // 检查是否需要强制修改密码
         boolean needChangePassword = repostService.isInitialPassword();
-        
+
         List<UserInfo> allUser = repostService.getAllUser();
         model.addAttribute("status", status);
         model.addAttribute("error", error);
@@ -127,7 +139,7 @@ public class RepostController {
     }
 
     @PostMapping("/login")
-    public String login(@RequestParam String password, 
+    public String login(@RequestParam String password,
                         @RequestParam(required = false) String rememberMe,
                         Model model,
                         HttpServletRequest request, HttpServletResponse response) {
@@ -137,13 +149,13 @@ public class RepostController {
             // 创建Session
             HttpSession session = request.getSession(true);
             session.setAttribute(SESSION_USER, true);
-            
+
             boolean keepLogin = "on".equals(rememberMe);
-            
+
             if (keepLogin) {
                 // 保持登录：Session和Cookie都设置较长过期时间
                 session.setMaxInactiveInterval(SESSION_TIMEOUT);
-                
+
                 Cookie cookie = new Cookie(COOKIE_SESSION, "valid");
                 cookie.setMaxAge(SESSION_TIMEOUT);
                 cookie.setPath("/");
@@ -154,7 +166,7 @@ public class RepostController {
                 session.setMaxInactiveInterval(-1); // 浏览器关闭时过期
                 // 不设置Cookie，或设置会话Cookie（浏览器关闭时删除）
             }
-            
+
             status = "登录成功";
             return "redirect:/pages/console";
         } else {
@@ -166,6 +178,7 @@ public class RepostController {
 
     /**
      * 添加云服务账号
+     *
      * @param name 1=腾讯云, 2=阿里云
      * @param id   SecretId
      * @param key  SecretKey
@@ -173,15 +186,15 @@ public class RepostController {
     @PostMapping("/addAccount")
     public String addAccount(@RequestParam String name, String id, String key, Model model) {
         log.info("添加云服务账号: provider={}, id={}", name, id);
-        
+
         if (name == null || name.isEmpty()) {
             model.addAttribute("error", "请选择云服务商");
             model.addAttribute("users", repostService.getAllUser());
             return "pages/console";
         }
-        
+
         String providerName = name.equals("1") ? "腾讯云" : "阿里云";
-        
+
         if (name.equals("1")) {
             // 腾讯云：验证凭证
             if (tencentApiService.validateCredentials(id, key)) {
@@ -203,7 +216,7 @@ public class RepostController {
                 error = "账号已存在或添加失败";
             }
         }
-        
+
         return "redirect:/pages/console";
     }
 
@@ -217,15 +230,15 @@ public class RepostController {
             model.addAttribute("error", "请先登录");
             return "index";
         }
-        
+
         log.info("删除云服务账号: provider={}, id={}", provider, id);
-        
+
         if (tencentApiService.deleteAccount(provider, id)) {
             status = "账号删除成功";
         } else {
             error = "账号删除失败";
         }
-        
+
         return "redirect:/pages/console";
     }
 }
